@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TN Auto — النظام الإداري</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#17202a;--muted:#6b7280;--line:#e5e7eb;--brand:#111827;--accent:#2563eb;--ok:#15803d;--danger:#dc2626}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Tahoma,sans-serif}
+header{background:var(--brand);color:#fff;padding:18px 22px;position:sticky;top:0;z-index:20}
+.header{max-width:1250px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{font-size:22px;font-weight:800}.sub{font-size:12px;color:#cbd5e1;margin-top:4px}
+.wrap{max-width:1250px;margin:18px auto;padding:0 14px}.nav{display:flex;gap:8px;overflow:auto;padding-bottom:10px}.nav button{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px 15px;font-weight:700;cursor:pointer}.nav button.active{background:var(--brand);color:#fff}
+.page{display:none}.page.active{display:block}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}.metric{font-size:25px;font-weight:800;margin-top:8px}.muted{color:var(--muted);font-size:13px}
+.toolbar{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap}.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}.primary{background:var(--accent);color:#fff}.dark{background:var(--brand);color:#fff}.danger{background:#fee2e2;color:#991b1b}.light{background:#eef2f7}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}th{background:#f8fafc}
+.modal{display:none;position:fixed;inset:0;background:#0008;z-index:50;padding:20px;overflow:auto}.modal.open{display:block}.modalbox{max-width:760px;background:#fff;border-radius:18px;padding:20px;margin:30px auto}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.formgrid label{font-size:12px;color:var(--muted)}.formgrid input,.formgrid select,.formgrid textarea{width:100%;padding:11px;border:1px solid #d1d5db;border-radius:10px;background:#fff}.formgrid textarea{min-height:80px;resize:vertical}.field{display:flex;flex-direction:column;gap:5px}.full{grid-column:1/-1}.modal-actions{display:flex;gap:8px;margin-top:15px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800}.green{background:#dcfce7;color:#166534}.yellow{background:#fef3c7;color:#92400e}.red{background:#fee2e2;color:#991b1b}.blue{background:#dbeafe;color:#1d4ed8}
+.empty{text-align:center;padding:30px;color:var(--muted)}.notice{padding:12px;border-radius:12px;background:#eff6ff;color:#1e40af;margin-bottom:12px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.grid{grid-template-columns:1fr}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}header{padding:14px}.wrap{padding:0 10px}table{font-size:12px}}
+</style>
+</head>
+<body>
+<header><div class="header"><div><div class="brand">TN Auto</div><div class="sub">نظام إدارة العربيات والشركاء والخزنة والعملاء</div></div><button class="btn light" onclick="refreshAll()">تحديث البيانات</button></div></header>
+<div class="wrap">
+<div class="nav">
+<button class="active" data-page="dashboard">الرئيسية</button>
+<button data-page="cars">العربيات</button>
+<button data-page="customers">العملاء</button>
+<button data-page="partners">الشركاء</button>
+<button data-page="cash">الخزنة</button>
+<button data-page="reports">التقارير</button>
+</div>
+
+<section id="dashboard" class="page active">
+<div class="grid">
+<div class="card"><div class="muted">رصيد الخزنة</div><div id="mCash" class="metric">0 ج</div></div>
+<div class="card"><div class="muted">عربيات موجودة</div><div id="mCars" class="metric">0</div></div>
+<div class="card"><div class="muted">عربيات مباعة</div><div id="mSold" class="metric">0</div></div>
+<div class="card"><div class="muted">صافي الأرباح</div><div id="mProfit" class="metric">0 ج</div></div>
+</div>
+<div class="card"><div class="toolbar"><h2>آخر العمليات</h2></div><div id="recent"></div></div>
+</section>
+
+<section id="cars" class="page">
+<div class="card"><div class="toolbar"><div><h2>العربيات</h2><div class="muted">المخزون والشراء والبيع والأرباح</div></div><button class="btn primary" onclick="openCar()">+ إضافة عربية</button></div></div>
+<div class="card"><div style="overflow:auto"><table><thead><tr><th>العربية</th><th>السنة/الموديل</th><th>الشراء</th><th>الحالة</th><th>البيع</th><th>الربح</th><th></th></tr></thead><tbody id="carsTable"></tbody></table></div></div>
+</section>
+
+<section id="customers" class="page">
+<div class="grid">
+<div class="card"><div class="muted">عدد العملاء</div><div id="mCustomers" class="metric">0</div></div>
+<div class="card"><div class="muted">طلبات سيارات مفتوحة</div><div id="mRequests" class="metric">0</div></div>
+</div>
+<div class="card"><div class="toolbar"><h2>العملاء</h2><button class="btn primary" onclick="openCustomer()">+ إضافة عميل</button></div><div style="overflow:auto"><table><thead><tr><th>الاسم</th><th>الهاتف</th><th>واتساب</th><th>المدينة</th><th>ملاحظات</th></tr></thead><tbody id="customersTable"></tbody></table></div></div>
+<div class="card"><div class="toolbar"><div><h2>طلبات السيارات</h2><div class="muted">سجل العميل الذي يريد عربية غير موجودة عندك</div></div><button class="btn primary" onclick="openRequest()">+ طلب سيارة</button></div><div style="overflow:auto"><table><thead><tr><th>العميل</th><th>المطلوب</th><th>الميزانية</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody id="requestsTable"></tbody></table></div></div>
+</section>
+
+<section id="partners" class="page">
+<div class="card"><div class="toolbar"><div><h2>الشركاء</h2><div class="muted">الإيداعات والسحوبات ونصيب الأرباح</div></div><button class="btn primary" onclick="openPartner()">+ إضافة شريك</button></div><div style="overflow:auto"><table><thead><tr><th>الشريك</th><th>الإيداعات</th><th>السحوبات</th><th>الأرباح</th><th>الرصيد</th><th></th></tr></thead><tbody id="partnersTable"></tbody></table></div></div>
+</section>
+
+<section id="cash" class="page">
+<div class="grid"><div class="card"><div class="muted">الرصيد الحالي</div><div id="cashBalance" class="metric">0 ج</div></div><div class="card"><div class="muted">إجمالي الداخل</div><div id="cashIn" class="metric">0 ج</div></div><div class="card"><div class="muted">إجمالي الخارج</div><div id="cashOut" class="metric">0 ج</div></div></div>
+<div class="card"><div class="toolbar"><h2>حركات الخزنة</h2><button class="btn primary" onclick="openCash()">+ حركة جديدة</button></div><div style="overflow:auto"><table><thead><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>البيان</th></tr></thead><tbody id="cashTable"></tbody></table></div></div>
+</section>
+
+<section id="reports" class="page">
+<div class="card"><h2>تقرير الربحية</h2><div id="profitReport"></div></div>
+<div class="card"><h2>تقرير الشركاء</h2><div id="partnerReport"></div></div>
+</section>
+</div>
+
+<div id="modal" class="modal"><div class="modalbox"><div class="toolbar"><h2 id="modalTitle"></h2><button class="btn light" onclick="closeModal()">إغلاق</button></div><div id="modalBody"></div></div></div>
+
+<script>
+const DB=window.supabase.createClient("https://swwiuunjpgdrsjvwlupo.supabase.co","sb_publishable_THtY-2aMTfpN9HcODht2OA_c585IK2U");
+let cars=[],customers=[],requests=[],partners=[],cash=[];
+
+const $=id=>document.getElementById(id);
+const money=n=>Number(n||0).toLocaleString("ar-EG",{maximumFractionDigits:2})+" ج";
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+const today=()=>new Date().toISOString().slice(0,10);
+function openModal(title,body){$("modalTitle").textContent=title;$("modalBody").innerHTML=body;$("modal").classList.add("open")}
+function closeModal(){$("modal").classList.remove("open")}
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(b.dataset.page).classList.add("active")});
+
+async function refreshAll(){
+ const [a,b,c,d,e]=await Promise.all([
+  DB.from("cars").select("*").order("id",{ascending:false}),
+  DB.from("customers").select("*").order("id",{ascending:false}),
+  DB.from("vehicle_requests").select("*,customers(name,phone)").order("id",{ascending:false}),
+  DB.from("partners").select("*").order("id",{ascending:false}),
+  DB.from("cash_transactions").select("*").order("id",{ascending:false})
+ ]);
+ cars=a.data||[];customers=b.data||[];requests=c.data||[];partners=d.data||[];cash=e.data||[];
+ renderAll();
+}
+function cashSigned(t){return ["income","partner_deposit","car_sale"].includes(t)?1:-1}
+function cashBalance(){return cash.reduce((s,x)=>s+cashSigned(x.type)*Number(x.amount),0)}
+function renderAll(){
+ const avail=cars.filter(x=>x.status!=="sold"),sold=cars.filter(x=>x.status==="sold");
+ const profit=sold.reduce((s,x)=>s+Number(x.sale_price||0)-Number(x.purchase_price||0)-Number(x.purchase_commission||0)-Number(x.sale_commission||0),0);
+ $("mCash").textContent=money(cashBalance());$("mCars").textContent=avail.length;$("mSold").textContent=sold.length;$("mProfit").textContent=money(profit);
+ $("mCustomers").textContent=customers.length;$("mRequests").textContent=requests.filter(x=>x.status==="open"||x.status==="searching").length;
+ renderCars();renderCustomers();renderRequests();renderPartners();renderCash();renderReports();renderRecent();
+}
+function renderCars(){
+ $("carsTable").innerHTML=cars.map(c=>{const p=c.status==="sold"?Number(c.sale_price||0)-Number(c.purchase_price||0)-Number(c.purchase_commission||0)-Number(c.sale_commission||0):null;return `<tr><td><b>${esc(c.name)}</b><br><span class="muted">${esc(c.supplier||"")}</span></td><td>${esc(c.year||"")} ${esc(c.model||"")}</td><td>${money(c.purchase_price)}</td><td><span class="badge ${c.status==="sold"?"green":"blue"}">${c.status==="sold"?"مباعة":"موجودة"}</span></td><td>${c.sale_price?money(c.sale_price):"-"}</td><td>${p===null?"-":money(p)}</td><td>${c.status!=="sold"?`<button class="btn light" onclick="openSale(${c.id})">بيع</button>`:""}</td></tr>`}).join("")||`<tr><td colspan="7" class="empty">لا توجد عربيات</td></tr>`;
+}
+function renderCustomers(){$("customersTable").innerHTML=customers.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.phone||"-")}</td><td>${esc(x.whatsapp||"-")}</td><td>${esc(x.city||"-")}</td><td>${esc(x.notes||"-")}</td></tr>`).join("")||`<tr><td colspan="5" class="empty">لا يوجد عملاء</td></tr>`}
+function renderRequests(){$("requestsTable").innerHTML=requests.map(x=>`<tr><td>${esc(x.customers?.name||"-")}<br>${esc(x.customers?.phone||"")}</td><td>${esc(x.desired_make||"")} ${esc(x.desired_model||"")} ${x.desired_year_from?`من ${x.desired_year_from}`:""} ${x.desired_year_to?`إلى ${x.desired_year_to}`:""}</td><td>${x.budget_min||x.budget_max?`${money(x.budget_min||0)} - ${money(x.budget_max||0)}`:"-"}</td><td><span class="badge blue">${esc(x.status)}</span></td><td>${esc(String(x.created_at).slice(0,10))}</td></tr>`).join("")||`<tr><td colspan="5" class="empty">لا توجد طلبات</td></tr>`}
+async function partnerStats(){
+ const out={};for(const p of partners){const {data}=await DB.from("partner_transactions").select("type,amount").eq("partner_id",p.id);out[p.id]=(data||[]).reduce((o,x)=>{o[x.type]=(o[x.type]||0)+Number(x.amount);return o},{})}return out
+}
+async function renderPartners(){const s=await partnerStats();$("partnersTable").innerHTML=partners.map(p=>{const x=s[p.id]||{};const bal=(x.deposit||0)+(x.profit||0)-(x.withdrawal||0);return `<tr><td><b>${esc(p.name)}</b></td><td>${money(x.deposit)}</td><td>${money(x.withdrawal)}</td><td>${money(x.profit)}</td><td><b>${money(bal)}</b></td><td><button class="btn light" onclick="openPartnerMove(${p.id})">حركة</button></td></tr>`}).join("")||`<tr><td colspan="6" class="empty">لا يوجد شركاء</td></tr>`}
+function renderCash(){const inn=cash.filter(x=>cashSigned(x.type)>0).reduce((s,x)=>s+Number(x.amount),0),out=cash.filter(x=>cashSigned(x.type)<0).reduce((s,x)=>s+Number(x.amount),0);$("cashBalance").textContent=money(inn-out);$("cashIn").textContent=money(inn);$("cashOut").textContent=money(out);$("cashTable").innerHTML=cash.map(x=>`<tr><td>${esc(x.transaction_date)}</td><td>${esc(x.type)}</td><td>${money(x.amount)}</td><td>${esc(x.description||"-")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">لا توجد حركات</td></tr>`}
+function renderReports(){const sold=cars.filter(x=>x.status==="sold");const profit=sold.reduce((s,x)=>s+Number(x.sale_price||0)-Number(x.purchase_price||0)-Number(x.purchase_commission||0)-Number(x.sale_commission||0),0);$("profitReport").innerHTML=`إجمالي العربيات المباعة: <b>${sold.length}</b><br>صافي الربح المسجل: <b>${money(profit)}</b>`;$("partnerReport").innerHTML=`إجمالي الشركاء: <b>${partners.length}</b><br>رصيد الخزنة: <b>${money(cashBalance())}</b>`}
+function renderRecent(){$("recent").innerHTML=cash.slice(0,8).map(x=>`<div style="padding:10px 0;border-bottom:1px solid #eee">${esc(x.transaction_date)} — <b>${money(x.amount)}</b> — ${esc(x.description||x.type)}</div>`).join("")||`<div class="empty">لا توجد عمليات بعد</div>`}
+
+function openCar(){
+ openModal("إضافة عربية",`<div class="formgrid">
+ <div class="field"><label>اسم العربية</label><input id="f_name"></div><div class="field"><label>الموديل</label><input id="f_model"></div>
+ <div class="field"><label>السنة</label><input id="f_year" type="number"></div><div class="field"><label>سعر الشراء</label><input id="f_purchase" type="number"></div>
+ <div class="field"><label>عمولة الشراء</label><input id="f_pc" type="number" value="0"></div><div class="field"><label>المورد</label><input id="f_supplier"></div>
+ <div class="field full"><label>ملاحظات</label><textarea id="f_notes"></textarea></div></div>
+ <div class="modal-actions"><button class="btn primary" onclick="saveCar()">حفظ</button></div>`)
+}
+async function saveCar(){
+ const name=$("f_name").value.trim(),purchase=Number($("f_purchase").value||0),pc=Number($("f_pc").value||0);
+ if(!name||purchase<=0)return alert("اسم العربية وسعر الشراء مطلوبان.");
+ if(cashBalance()<purchase+pc)return alert("رصيد الخزنة لا يكفي. سجّل إيداع شريك أو دخل أولًا.");
+ const {data,error}=await DB.from("cars").insert({name,model:$("f_model").value.trim()||null,year:Number($("f_year").value)||null,purchase_price:purchase,purchase_commission:pc,supplier:$("f_supplier").value.trim()||null,notes:$("f_notes").value.trim()||null,purchased_at:today()}).select().single();
+ if(error)return alert(error.message);
+ const r=await DB.from("cash_transactions").insert({type:"car_purchase",amount:purchase+pc,description:"شراء عربية: "+name,car_id:data.id,transaction_date:today()});
+ if(r.error){await DB.from("cars").delete().eq("id",data.id);return alert("تعذر تسجيل حركة الخزنة، لذلك لم يتم اعتماد العربية.");}
+ closeModal();refreshAll()
+}
+function openCustomer(){openModal("إضافة عميل",`<div class="formgrid"><div class="field"><label>الاسم</label><input id="c_name"></div><div class="field"><label>رقم الهاتف</label><input id="c_phone"></div><div class="field"><label>واتساب</label><input id="c_wa"></div><div class="field"><label>المدينة</label><input id="c_city"></div><div class="field full"><label>ملاحظات</label><textarea id="c_notes"></textarea></div></div><div class="modal-actions"><button class="btn primary" onclick="saveCustomer()">حفظ العميل</button></div>`)}
+async function saveCustomer(){const name=$("c_name").value.trim();if(!name)return alert("اسم العميل مطلوب.");const {error}=await DB.from("customers").insert({name,phone:$("c_phone").value.trim()||null,whatsapp:$("c_wa").value.trim()||null,city:$("c_city").value.trim()||null,notes:$("c_notes").value.trim()||null});if(error)return alert(error.message);closeModal();refreshAll()}
+function openRequest(){if(!customers.length)return alert("أضف العميل أولًا.");openModal("طلب سيارة من عميل",`<div class="formgrid"><div class="field"><label>العميل</label><select id="r_customer">${customers.map(x=>`<option value="${x.id}">${esc(x.name)} — ${esc(x.phone||"")}</option>`).join("")}</select></div><div class="field"><label>الماركة المطلوبة</label><input id="r_make"></div><div class="field"><label>الموديل المطلوب</label><input id="r_model"></div><div class="field"><label>من سنة</label><input id="r_y1" type="number"></div><div class="field"><label>إلى سنة</label><input id="r_y2" type="number"></div><div class="field"><label>أقل ميزانية</label><input id="r_min" type="number"></div><div class="field"><label>أقصى ميزانية</label><input id="r_max" type="number"></div><div class="field"><label>اللون</label><input id="r_color"></div><div class="field full"><label>تفاصيل الطلب</label><textarea id="r_notes"></textarea></div></div><div class="modal-actions"><button class="btn primary" onclick="saveRequest()">حفظ الطلب</button></div>`)}
+async function saveRequest(){const {error}=await DB.from("vehicle_requests").insert({customer_id:Number($("r_customer").value),desired_make:$("r_make").value.trim()||null,desired_model:$("r_model").value.trim()||null,desired_year_from:Number($("r_y1").value)||null,desired_year_to:Number($("r_y2").value)||null,budget_min:Number($("r_min").value)||null,budget_max:Number($("r_max").value)||null,color:$("r_color").value.trim()||null,notes:$("r_notes").value.trim()||null});if(error)return alert(error.message);closeModal();refreshAll()}
+function openPartner(){openModal("إضافة شريك",`<div class="formgrid"><div class="field"><label>اسم الشريك</label><input id="p_name"></div></div><div class="modal-actions"><button class="btn primary" onclick="savePartner()">حفظ</button></div>`)}
+async function savePartner(){const name=$("p_name").value.trim();if(!name)return alert("اسم الشريك مطلوب.");const {error}=await DB.from("partners").insert({name});if(error)return alert(error.message);closeModal();refreshAll()}
+function openPartnerMove(id){openModal("حركة شريك",`<div class="formgrid"><div class="field"><label>نوع الحركة</label><select id="pm_type"><option value="deposit">إيداع</option><option value="withdrawal">سحب</option></select></div><div class="field"><label>المبلغ</label><input id="pm_amount" type="number"></div><div class="field full"><label>البيان</label><input id="pm_desc"></div></div><div class="modal-actions"><button class="btn primary" onclick="savePartnerMove(${id})">حفظ</button></div>`)}
+async function savePartnerMove(id){const type=$("pm_type").value,amount=Number($("pm_amount").value||0);if(amount<=0)return alert("المبلغ غير صحيح.");if(type==="withdrawal"&&cashBalance()<amount)return alert("رصيد الخزنة لا يكفي.");const r=await DB.from("partner_transactions").insert({partner_id:id,type,amount,description:$("pm_desc").value.trim()||null,transaction_date:today()});if(r.error)return alert(r.error.message);const cr=await DB.from("cash_transactions").insert({type:type==="deposit"?"partner_deposit":"partner_withdrawal",amount,partner_id:id,description:$("pm_desc").value.trim()||("حركة شريك"),transaction_date:today()});if(cr.error){await DB.from("partner_transactions").delete().eq("id",r.data?.[0]?.id);return alert(cr.error.message)}closeModal();refreshAll()}
+function openCash(){openModal("حركة خزنة",`<div class="formgrid"><div class="field"><label>النوع</label><select id="x_type"><option value="income">دخل</option><option value="expense">مصروف</option></select></div><div class="field"><label>المبلغ</label><input id="x_amount" type="number"></div><div class="field full"><label>البيان</label><textarea id="x_desc"></textarea></div></div><div class="modal-actions"><button class="btn primary" onclick="saveCash()">حفظ</button></div>`)}
+async function saveCash(){const type=$("x_type").value,amount=Number($("x_amount").value||0);if(amount<=0)return alert("المبلغ غير صحيح.");if(type==="expense"&&cashBalance()<amount)return alert("رصيد الخزنة لا يكفي.");const {error}=await DB.from("cash_transactions").insert({type,amount,description:$("x_desc").value.trim()||null,transaction_date:today()});if(error)return alert(error.message);closeModal();refreshAll()}
+async function openSale(carId){
+ const car=cars.find(x=>x.id===carId);if(!car)return;
+ if(!customers.length)return alert("أضف العميل أولًا من صفحة العملاء.");
+ openModal("بيع العربية وتسجيل العميل",`<div class="notice">سيتم تحديث العربية والخزنة والربح ونصيب الشركاء تلقائيًا في عملية واحدة.</div><div class="formgrid">
+ <div class="field"><label>العربية</label><input value="${esc(car.name)}" disabled></div>
+ <div class="field"><label>العميل</label><select id="s_customer">${customers.map(x=>`<option value="${x.id}">${esc(x.name)} — ${esc(x.phone||"")}</option>`).join("")}</select></div>
+ <div class="field"><label>سعر البيع</label><input id="s_price" type="number"></div><div class="field"><label>عمولة البيع</label><input id="s_comm" type="number" value="0"></div>
+ <div class="field full"><label>ملاحظات البيع</label><textarea id="s_notes"></textarea></div></div><div class="modal-actions"><button class="btn primary" onclick="saveSale(${carId})">تأكيد البيع</button></div>`)
+}
+async function saveSale(carId){
+ const price=Number($("s_price").value||0),comm=Number($("s_comm").value||0),customerId=Number($("s_customer").value);
+ if(price<=0)return alert("سعر البيع مطلوب.");
+ const {data,error}=await DB.rpc("record_car_sale",{p_car_id:carId,p_sale_price:price,p_sale_commission:comm,p_customer_id:customerId,p_sale_date:today(),p_notes:$("s_notes").value.trim()||null});
+ if(error)return alert(error.message);
+ closeModal();refreshAll();alert(`تم البيع. صافي الربح: ${money(data?.profit||0)}`);
+}
+refreshAll();
+</script>
+</body></html>
