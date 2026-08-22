@@ -169,7 +169,7 @@ function initOnline(){
 
 <script>
 const INIT={}
-
+const KEY='TN_AUTO_FINAL_V1'; let S=JSON.parse(localStorage.getItem(KEY)||'null')||INIT;
 const P={dash:'لوحة التحكم',cars:'المخزون والعربيات',requests:'طلبات العملاء',partners:'الشركاء',contrib:'مساهمات العربيات',cash:'الخزنة',moves:'حركة الشركاء',refunds:'مبالغ تسترد',profits:'الأرباح',reports:'التقارير',original:'البيانات الأصلية'};
 function save(){localStorage.setItem(KEY,JSON.stringify(S));if(onlineMode) queueCloudSync()}
 function A(s){return Array.isArray(S[s])?S[s]:(S[s]=[])}
